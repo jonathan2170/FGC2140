@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no,maximum-scale=1.0" />
+  <title>富程量化 · 2140</title>
+  <meta name="description" content="富程量化 VIP 跟單收益儀表板" />
+  <meta name="theme-color" content="#0A0E1A" />
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="富程量化" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png" />
+  <link rel="apple-touch-icon" sizes="167x167" href="icon-167.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================
+       DESIGN TOKENS
+       ============================ */
+    :root {
+      /* Background */
+      --bg-base: #06080F;
+      --bg-primary: #0A0E1A;
+      --bg-surface: #111726;
+      --bg-elevated: #1A2235;
+      --bg-elevated-hi: #232E47;
+
+      /* Borders */
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.10);
+      --border-strong: rgba(255, 255, 255, 0.16);
+
+      /* Text */
+      --text-primary: #F5F7FA;
+      --text-secondary: #94A1B5;
+      --text-tertiary: #5C6A82;
+      --text-muted: #3F4A5E;
+
+      /* Brand (from logo) */
+      --mint: #5DD3C8;
+      --mint-soft: rgba(93, 211, 200, 0.12);
+      --gold: #D4A75C;
+      --gold-soft: rgba(212, 167, 92, 0.12);
+
+      /* Status */
+      --profit: #00D26A;
+      --profit-soft: rgba(0, 210, 106, 0.14);
+      --loss: #FF5566;
+      --loss-soft: rgba(255, 85, 102, 0.14);
+
+      /* Effects */
+      --radius-sm: 8px;
+      --radius: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+
+      --shadow-glow: 0 0 40px rgba(93, 211, 200, 0.08);
+
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bot: env(safe-area-inset-bottom, 0px);
+    }
+
+    * , *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-family: 'Onest', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-feature-settings: 'tnum' 1, 'cv11' 1;
+      overscroll-behavior-y: contain;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(93, 211, 200, 0.08), transparent 60%),
+        radial-gradient(900px 500px at 110% 10%, rgba(212, 167, 92, 0.06), transparent 60%),
+        linear-gradient(180deg, #0A0E1A 0%, #06080F 100%);
+      background-attachment: fixed;
+    }
+
+    /* Subtle noise texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.025;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.7'/></svg>");
+      z-index: 0;
+    }
+
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum' 1, 'zero' 1; }
+
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+    input, select, textarea { font-family: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ============================
+       LAYOUT
+       ============================ */
+    #app {
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: calc(var(--safe-top) + 12px) 0 calc(var(--safe-bot) + 100px);
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+
+    .container { padding: 0 18px; }
+
+    /* ============================
+       TOP BAR
+       ============================ */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .brand-name {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+    .brand-name .zh {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      color: var(--text-primary);
+    }
+    .brand-name .en {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      color: var(--mint);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+      color: var(--text-secondary);
+    }
+    .icon-btn:hover, .icon-btn:active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border-color: var(--border);
+    }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    .top-actions { display: flex; gap: 8px; }
+
+    /* ============================
+       HERO CARD
+       ============================ */
+    .hero {
+      margin: 0 18px 18px;
+      padding: 22px 22px 18px;
+      background:
+        linear-gradient(165deg, rgba(93, 211, 200, 0.06) 0%, transparent 50%),
+        var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(93, 211, 200, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      position: relative;
+      z-index: 1;
+    }
+    .hero-label {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      font-weight: 600;
+    }
+    .hero-value {
+      margin-top: 6px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.05;
+    }
+    .hero-value .currency {
+      font-size: 18px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      margin-right: 4px;
+      vertical-align: 4px;
+    }
+
+    .hero-side {
+      text-align: right;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--profit-soft);
+      color: var(--profit);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .pill.loss { background: var(--loss-soft); color: var(--loss); }
+    .pill.neutral { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+
+    /* Chart area */
+    .chart-wrap {
+      margin-top: 16px;
+      height: 120px;
+      position: relative;
+      z-index: 1;
+    }
+    .chart-empty {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+
+    .hero-foot {
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      position: relative;
+      z-index: 1;
+    }
+    .hero-foot .item {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .hero-foot .item .v {
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+    .hero-foot .divider { width: 1px; height: 24px; background: var(--border-subtle); }
+
+    /* ============================
+       ACCOUNT CARDS
+       ============================ */
+    .account-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 0 18px 12px;
+    }
+    .account-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 16px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .account-card.trading { border-color: rgba(93, 211, 200, 0.18); }
+    .account-card.funding { border-color: rgba(212, 167, 92, 0.18); }
+    .account-card .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 100px;
+      margin-bottom: 10px;
+    }
+    .account-card.trading .badge { background: var(--mint-soft); color: var(--mint); }
+    .account-card.funding .badge { background: var(--gold-soft); color: var(--gold); }
+    .account-card .name {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .account-card .value {
+      margin-top: 6px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .account-card .value .currency {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-right: 2px;
+      vertical-align: 2px;
+    }
+    .account-card .sub {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    /* ============================
+       APR SUMMARY CARD
+       ============================ */
+    .apr-card {
+      margin: 0 18px 18px;
+      padding: 18px 20px;
+      background:
+        linear-gradient(135deg, rgba(212, 167, 92, 0.08) 0%, transparent 60%),
+        var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .apr-card .left { display: flex; flex-direction: column; gap: 4px; }
+    .apr-card .label-row { display: flex; align-items: center; gap: 8px; }
+    .apr-card .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    .apr-card .desc {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+    .apr-card .val {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--gold);
+      letter-spacing: -0.02em;
+    }
+
+    /* ============================
+       SECTION
+       ============================ */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px 12px;
+    }
+    .section-title {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .section-title .count {
+      margin-left: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .text-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--mint);
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+    .text-btn:active { background: var(--mint-soft); }
+
+    /* ============================
+       RECORDS LIST
+       ============================ */
+    .records {
+      margin: 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .record {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .record:active { background: var(--bg-elevated); border-color: var(--border); }
+    .record-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .record-month {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .record-rebate {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--profit);
+    }
+    .record-rebate.neg { color: var(--loss); }
+    .record-meta {
+      margin-top: 8px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .meta-item .k {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      font-weight: 600;
+    }
+    .meta-item .v {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .meta-item .v.pos { color: var(--profit); }
+    .meta-item .v.neg { color: var(--loss); }
+
+    /* Empty state */
+    .empty {
+      margin: 0 18px;
+      padding: 36px 18px;
+      background: var(--bg-surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-lg);
+      text-align: center;
+    }
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      background: var(--mint-soft);
+      color: var(--mint);
+      display: grid;
+      place-items: center;
+    }
+    .empty-icon svg { width: 22px; height: 22px; }
+    .empty-title {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .empty-desc {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* ============================
+       FAB
+       ============================ */
+    .fab {
+      position: fixed;
+      bottom: calc(20px + var(--safe-bot));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(calc(100% - 36px), 444px);
+      height: 56px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, var(--mint) 0%, #3DB5AB 100%);
+      color: #032420;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow:
+        0 10px 30px rgba(93, 211, 200, 0.25),
+        0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 50;
+      transition: transform 0.12s ease;
+    }
+    .fab:active { transform: translateX(-50%) scale(0.97); }
+    .fab svg { width: 18px; height: 18px; }
+
+    /* ============================
+       MODAL / SHEET
+       ============================ */
+    .scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 100;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+
+    .sheet {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translate(-50%, 100%);
+      width: 100%;
+      max-width: 480px;
+      max-height: 92vh;
+      max-height: 92dvh;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 28px 28px 0 0;
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0.32, 1);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-bottom: var(--safe-bot);
+    }
+    .sheet.open { transform: translate(-50%, 0); }
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 100px;
+      background: var(--border-strong);
+      margin: 10px auto 6px;
+      flex-shrink: 0;
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 22px 16px;
+      flex-shrink: 0;
+    }
+    .sheet-title {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .sheet-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 100px;
+      background: var(--bg-surface);
+      display: grid;
+      place-items: center;
+      color: var(--text-secondary);
+    }
+    .sheet-body {
+      padding: 0 22px 24px;
+      overflow-y: auto;
+      flex: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ============================
+       FORM
+       ============================ */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .form-label {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+    .form-label .opt {
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 4px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-size: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--mint);
+      background: var(--bg-elevated);
+    }
+    .form-input::placeholder { color: var(--text-muted); }
+
+    .input-affix-wrap {
+      position: relative;
+    }
+    .input-affix {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-tertiary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      pointer-events: none;
+    }
+    .input-affix.left { left: 16px; }
+    .input-affix.right { right: 16px; }
+    .form-input.with-left { padding-left: 32px; }
+    .form-input.with-right { padding-right: 36px; }
+
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .form-hint {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    .preview-card {
+      margin-top: 4px;
+      padding: 14px 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+    }
+    .preview-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    .preview-row + .preview-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+    .preview-row .k {
+      font-family: 'Noto Sans TC', sans-serif;
+      color: var(--text-secondary);
+    }
+    .preview-row .v {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--mint);
+    }
+
+    /* Submit */
+    .btn-primary {
+      width: 100%;
+      height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--mint) 0%, #3DB5AB 100%);
+      color: #032420;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      transition: transform 0.12s ease, opacity 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; }
+
+    .btn-ghost {
+      width: 100%;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-family: 'Noto Sans TC', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .btn-ghost:active { background: var(--bg-elevated); }
+    .btn-ghost.danger { color: var(--loss); border-color: rgba(255, 85, 102, 0.25); }
+
+    .form-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .form-actions-row { display: flex; gap: 10px; }
+    .form-actions-row > * { flex: 1; }
+
+    /* ============================
+       SETTINGS / ONBOARD
+       ============================ */
+    .onboard-hero {
+      padding: 12px 22px 24px;
+      text-align: center;
+    }
+    .onboard-logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 16px;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-glow);
+    }
+    .onboard-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .onboard-title {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .onboard-sub {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      color: var(--text-tertiary);
+      line-height: 1.6;
+    }
+
+    /* Settings list */
+    .list-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .list-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s ease;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:active { background: var(--bg-elevated); }
+    .list-row .lk {
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .list-row .lv {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ============================
+       TOAST
+       ============================ */
+    .toast {
+      position: fixed;
+      top: calc(var(--safe-top) + 16px);
+      left: 50%;
+      transform: translate(-50%, -120%);
+      max-width: 90vw;
+      padding: 12px 18px;
+      background: rgba(20, 26, 40, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0.32, 1);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .toast.show { transform: translate(-50%, 0); }
+    .toast .dot {
+      width: 6px; height: 6px; border-radius: 100px; background: var(--profit);
+    }
+    .toast.error .dot { background: var(--loss); }
+
+    /* Animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
+    .anim-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .anim-in-1 { animation-delay: 0.05s; }
+    .anim-in-2 { animation-delay: 0.10s; }
+    .anim-in-3 { animation-delay: 0.15s; }
+    .anim-in-4 { animation-delay: 0.20s; }
+
+    /* Stat ticker */
+    .meta-bar {
+      display: flex;
+      gap: 8px;
+      padding: 0 18px 14px;
+      flex-wrap: wrap;
+    }
+    .meta-chip {
+      padding: 7px 12px;
+      border-radius: 100px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      font-size: 11px;
+      font-family: 'Noto Sans TC', sans-serif;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .meta-chip .v {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .meta-chip .dot {
+      width: 6px; height: 6px; border-radius: 100px;
+      background: var(--mint);
+      box-shadow: 0 0 8px var(--mint);
+    }
+
+    /* Overflow safety */
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span class="dot"></span><span id="toastMsg"></span>
+  </div>
+
+  <main id="app"></main>
+
+  <!-- Scrim & sheets -->
+  <div class="scrim" id="scrim"></div>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h2 class="sheet-title" id="sheetTitle">設定</h2>
+      <button class="sheet-close" id="sheetClose" aria-label="關閉">
+        <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+
+  <script>
+  /* ============================================================
+     富程量化 · 2140  —  VIP 跟單收益儀表板
+     Single-page PWA. State persisted in localStorage.
+     ============================================================ */
+
+  // ---------- Constants & Helpers ----------
+  const STORAGE_KEY = 'fucheng2140.v1';
+  const DEFAULT_STATE = {
+    config: {
+      initialPrincipal: null,   // number | null
+      startDate: null,          // 'YYYY-MM-DD' | null
+      currency: 'USD'
+    },
+    records: []  // [{ id, ym (YYYY-MM), incomeAmount, returnRate, rebateRate, notes }]
+  };
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  const fmtMoney = (n, opts = {}) => {
+    if (!Number.isFinite(n)) return '—';
+    const sign = opts.signed && n > 0 ? '+' : '';
+    return sign + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const fmtPct = (n, digits = 2, signed = false) => {
+    if (!Number.isFinite(n)) return '—';
+    const sign = signed && n > 0 ? '+' : '';
+    return sign + n.toFixed(digits) + '%';
+  };
+  const todayISO = () => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  };
+  const currentYM = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  };
+  const ymPretty = (ym) => {
+    if (!ym) return '';
+    const [y, m] = ym.split('-');
+    return `${y}/${m}`;
+  };
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const uid = () => 'r_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+
+  // Days between two ISO dates (inclusive of running period)
+  const daysBetween = (fromISO, toISO) => {
+    const a = new Date(fromISO + 'T00:00:00');
+    const b = new Date(toISO + 'T00:00:00');
+    return Math.max(1, Math.round((b - a) / 86400000));
+  };
+
+  // ---------- State ----------
+  let state = loadState();
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(DEFAULT_STATE);
+      const parsed = JSON.parse(raw);
+      // Shallow merge with defaults
+      return {
+        config: { ...DEFAULT_STATE.config, ...(parsed.config || {}) },
+        records: Array.isArray(parsed.records) ? parsed.records : []
+      };
+    } catch (e) {
+      console.warn('State load failed, using default', e);
+      return structuredClone(DEFAULT_STATE);
+    }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      toast('儲存失敗', true);
+    }
+  }
+
+  // ---------- Computed ----------
+  // Rebate per month = 初始本金 × 返佣率
+  function computeRecord(r, principal) {
+    const rebateAmount = (Number(principal) || 0) * (Number(r.rebateRate) || 0) / 100;
+    return { ...r, rebateAmount };
+  }
+
+  function computeTotals() {
+    const principal = Number(state.config.initialPrincipal) || 0;
+    const records = state.records
+      .map(r => computeRecord(r, principal))
+      .sort((a, b) => a.ym.localeCompare(b.ym));
+
+    const totalRebate = records.reduce((s, r) => s + r.rebateAmount, 0);
+    const totalIncome = records.reduce((s, r) => s + (Number(r.incomeAmount) || 0), 0);
+
+    // 最新月份收益額（依年月排序後的最後一筆）
+    const latestIncome = records.length
+      ? Number(records[records.length - 1].incomeAmount) || 0
+      : 0;
+
+    // 帳戶現值
+    const tradingAccount = principal + latestIncome;          // 交易帳戶 = 本金 + 最新月份收益
+    const fundingAccount = totalRebate;                       // 資金帳戶 = 累計返佣
+    const totalAsset = principal + latestIncome + totalRebate; // 總資產 = 三者合計
+
+    // 累計收益率 = (最新收益 + 累計返佣) ÷ 本金
+    const totalReturnPct = principal > 0 ? ((latestIncome + totalRebate) / principal) * 100 : 0;
+
+    let days = 1;
+    let apr = 0;
+    if (state.config.startDate) {
+      days = daysBetween(state.config.startDate, todayISO());
+      // APR：(本金 + 最新收益 + 累計返佣) ÷ 本金 · 年化  ≡  總成長率年化
+      apr = principal > 0 && days > 0
+        ? ((latestIncome + totalRebate) / principal) * (365 / days) * 100
+        : 0;
+    }
+
+    // Avg monthly return on principal
+    const avgMonthlyReturn = records.length
+      ? records.reduce((s, r) => s + (Number(r.returnRate) || 0), 0) / records.length
+      : 0;
+    const avgRebateRate = records.length
+      ? records.reduce((s, r) => s + (Number(r.rebateRate) || 0), 0) / records.length
+      : 0;
+
+    return {
+      principal, records, totalRebate, totalIncome, latestIncome,
+      tradingAccount, fundingAccount, totalAsset, totalReturnPct,
+      apr, days, avgMonthlyReturn, avgRebateRate
+    };
+  }
+
+  // ---------- Toast ----------
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const t = $('#toast');
+    $('#toastMsg').textContent = msg;
+    t.classList.toggle('error', isError);
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- Sheet ----------
+  function openSheet(title, html, onMount) {
+    $('#sheetTitle').textContent = title;
+    $('#sheetBody').innerHTML = html;
+    $('#scrim').classList.add('open');
+    $('#sheet').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    if (onMount) requestAnimationFrame(onMount);
+  }
+
+  function closeSheet() {
+    $('#scrim').classList.remove('open');
+    $('#sheet').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  $('#sheetClose').addEventListener('click', closeSheet);
+  $('#scrim').addEventListener('click', closeSheet);
+
+  // ---------- Render: Onboarding ----------
+  function renderOnboard() {
+    const html = `
+      <div class="onboard-hero">
+        <div class="onboard-logo"><img src="icon-512.png" alt="富程量化" /></div>
+        <h1 class="onboard-title">歡迎進入富程量化</h1>
+        <p class="onboard-sub">設定您的母帳號初始資金與運行起始日，<br/>系統將為您計算累計返佣與年化報酬率 APR。</p>
+      </div>
+      <form id="onboardForm">
+        <div class="form-group">
+          <label class="form-label" for="onbPrincipal">初始本金</label>
+          <div class="input-affix-wrap">
+            <span class="input-affix left">$</span>
+            <input class="form-input mono with-left" id="onbPrincipal" type="number" inputmode="decimal" step="0.01" min="0" placeholder="5000.00" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="onbDate">初始運行時間</label>
+          <input class="form-input mono" id="onbDate" type="date" required />
+          <p class="form-hint">用於計算年化報酬率（APR），請選擇實際開始跟單的日期。</p>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">開始追蹤</button>
+        </div>
+      </form>
+    `;
+    document.getElementById('app').innerHTML = `
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-name">
+            <span class="zh">富程量化</span>
+            <span class="en">FGCoin2140</span>
+          </div>
+        </div>
+      </header>
+      <div class="container" style="padding-top: 12px;">${html}</div>
+    `;
+
+    // Default date today
+    $('#onbDate').value = todayISO();
+
+    $('#onboardForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const p = parseFloat($('#onbPrincipal').value);
+      const d = $('#onbDate').value;
+      if (!Number.isFinite(p) || p <= 0) { toast('請輸入有效初始本金', true); return; }
+      if (!d) { toast('請選擇起始日期', true); return; }
+      state.config.initialPrincipal = p;
+      state.config.startDate = d;
+      saveState();
+      toast('設定完成');
+      renderApp();
+    });
+  }
+
+  // ---------- Render: Dashboard ----------
+  function renderDashboard() {
+    const t = computeTotals();
+    const hasRecords = t.records.length > 0;
+
+    const heroChartHTML = hasRecords ? renderChartSVG(t.records) : `
+      <div class="chart-empty">尚無資料 · 新增首筆紀錄以顯示走勢</div>
+    `;
+
+    const recordsHTML = hasRecords ? t.records.slice().reverse().map(r => {
+      const rb = r.rebateAmount;
+      const cls = rb >= 0 ? '' : 'neg';
+      return `
+        <div class="record" data-id="${r.id}" role="button" tabindex="0">
+          <div class="record-top">
+            <span class="record-month">${ymPretty(r.ym)}</span>
+            <span class="record-rebate ${cls}">${rb >= 0 ? '+' : ''}$${fmtMoney(rb)}</span>
+          </div>
+          <div class="record-meta">
+            <div class="meta-item">
+              <span class="k">收益額</span>
+              <span class="v ${r.incomeAmount >= 0 ? 'pos' : 'neg'}">${r.incomeAmount >= 0 ? '+' : ''}$${fmtMoney(r.incomeAmount)}</span>
+            </div>
+            <div class="meta-item">
+              <span class="k">收益率</span>
+              <span class="v ${r.returnRate >= 0 ? 'pos' : 'neg'}">${fmtPct(r.returnRate, 2, true)}</span>
+            </div>
+            <div class="meta-item">
+              <span class="k">節點返佣</span>
+              <span class="v">${fmtPct(r.rebateRate, 2)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') : `
+      <div class="empty">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 14l4-4 4 4 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="empty-title">尚未登錄收益紀錄</div>
+        <div class="empty-desc">點擊下方按鈕，新增第一筆月度收益。</div>
+      </div>
+    `;
+
+    const aprColor = t.apr >= 0 ? 'var(--gold)' : 'var(--loss)';
+    const totalReturnSign = t.totalReturnPct >= 0 ? '+' : '';
+    const heroPillCls = t.totalReturnPct >= 0 ? '' : 'loss';
+    const heroPillSign = t.totalReturnPct >= 0 ? '+' : '';
+
+    document.getElementById('app').innerHTML = `
+      <!-- Top bar -->
+      <header class="topbar anim-in">
+        <div class="brand">
+          <div class="brand-name">
+            <span class="zh">富程量化</span>
+            <span class="en">FGCoin2140</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" id="btnExport" aria-label="匯出">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="icon-btn" id="btnSettings" aria-label="設定">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.31.74 1.02 1.22 1.82 1.22h.09a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Meta chips -->
+      <div class="meta-bar anim-in anim-in-1">
+        <span class="meta-chip"><span class="dot"></span>母帳號運行中</span>
+        <span class="meta-chip">已運行 <span class="v">${t.days}</span> 天</span>
+        <span class="meta-chip">紀錄筆數 <span class="v">${t.records.length}</span></span>
+      </div>
+
+      <!-- Hero -->
+      <section class="hero anim-in anim-in-1">
+        <div class="hero-row">
+          <div>
+            <div class="hero-label">總資產淨值</div>
+            <div class="hero-value">
+              <span class="currency">$</span><span class="mono">${fmtMoney(t.totalAsset)}</span>
+            </div>
+          </div>
+          <div class="hero-side">
+            <div class="hero-label">累計收益率</div>
+            <div style="margin-top: 6px;">
+              <span class="pill ${heroPillCls}">${heroPillSign}${fmtPct(t.totalReturnPct, 2)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">${heroChartHTML}</div>
+        <div class="hero-foot">
+          <div class="item">
+            <span>初始本金</span>
+            <span class="v">$${fmtMoney(t.principal)}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="item">
+            <span>累計返佣</span>
+            <span class="v" style="color: var(--mint)">+$${fmtMoney(t.totalRebate)}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="item" style="text-align: right">
+            <span>起始日</span>
+            <span class="v">${state.config.startDate || '—'}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Account cards -->
+      <div class="account-grid anim-in anim-in-2">
+        <div class="account-card trading">
+          <div class="badge">
+            <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            單位數
+          </div>
+          <div class="name">交易帳戶 · 本金</div>
+          <div class="value"><span class="currency">$</span>${fmtMoney(t.tradingAccount)}</div>
+          <div class="sub">本金 + 最新月份收益</div>
+        </div>
+        <div class="account-card funding">
+          <div class="badge">
+            <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 10h5a2 2 0 110 4H10a2 2 0 100 4h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            配息
+          </div>
+          <div class="name">資金帳戶 · 返佣金額</div>
+          <div class="value" style="color: var(--gold)"><span class="currency">$</span>${fmtMoney(t.fundingAccount)}</div>
+          <div class="sub">節點手續費返佣累計</div>
+        </div>
+      </div>
+
+      <!-- APR card -->
+      <section class="apr-card anim-in anim-in-3">
+        <div class="left">
+          <div class="label-row">
+            <span class="label">年化報酬率</span>
+            <span class="label" style="color: var(--text-tertiary); letter-spacing: 0.16em">APR</span>
+          </div>
+          <span class="desc">(本金 + 最新收益 + 累計返佣) ÷ 初始本金 · 年化</span>
+        </div>
+        <div class="val" style="color: ${aprColor}">${totalReturnSign}${fmtPct(t.apr, 2)}</div>
+      </section>
+
+      <!-- Records -->
+      <div class="section-head anim-in anim-in-3">
+        <h2 class="section-title">月度紀錄<span class="count">${t.records.length}</span></h2>
+        <button class="text-btn" id="btnAddInline">
+          <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          新增
+        </button>
+      </div>
+      <div class="records anim-in anim-in-4">${recordsHTML}</div>
+    `;
+
+    // Wire up actions
+    $('#btnSettings').addEventListener('click', () => openSettingsSheet());
+    $('#btnExport').addEventListener('click', () => openExportSheet());
+    $('#btnAddInline').addEventListener('click', () => openRecordSheet());
+
+    // Records click -> edit
+    $$('.record').forEach(el => {
+      el.addEventListener('click', () => openRecordSheet(el.dataset.id));
+    });
+  }
+
+  // ---------- Chart ----------
+  function renderChartSVG(records) {
+    // Cumulative rebate over months
+    let acc = 0;
+    const points = records.map(r => { acc += r.rebateAmount; return { ym: r.ym, val: acc }; });
+    if (points.length === 0) return '';
+
+    const W = 432; // logical width (will scale)
+    const H = 120;
+    const padX = 4;
+    const padY = 16;
+
+    const max = Math.max(...points.map(p => p.val), 1);
+    const min = Math.min(...points.map(p => p.val), 0);
+    const range = (max - min) || 1;
+
+    // If only one point, draw a flat line at its value with a dot
+    const xFor = (i) => points.length === 1 ? W/2 : padX + (i / (points.length - 1)) * (W - padX*2);
+    const yFor = (v) => H - padY - ((v - min) / range) * (H - padY*2);
+
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i).toFixed(2)} ${yFor(p.val).toFixed(2)}`).join(' ');
+    const areaPath = `${linePath} L ${xFor(points.length - 1).toFixed(2)} ${H - padY} L ${xFor(0).toFixed(2)} ${H - padY} Z`;
+
+    const lastIdx = points.length - 1;
+    const lastX = xFor(lastIdx);
+    const lastY = yFor(points[lastIdx].val);
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%; height:100%; display:block; overflow: visible;">
+        <defs>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#5DD3C8"/>
+            <stop offset="100%" stop-color="#00D26A"/>
+          </linearGradient>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#5DD3C8" stop-opacity="0.32"/>
+            <stop offset="100%" stop-color="#5DD3C8" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Baseline grid -->
+        <line x1="0" y1="${H - padY}" x2="${W}" y2="${H - padY}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
+        <path d="${areaPath}" fill="url(#areaGrad)"/>
+        <path d="${linePath}" fill="none" stroke="url(#lineGrad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        <!-- last point -->
+        <circle cx="${lastX}" cy="${lastY}" r="6" fill="#0A0E1A" stroke="#5DD3C8" stroke-width="2"/>
+        <circle cx="${lastX}" cy="${lastY}" r="2" fill="#5DD3C8"/>
+      </svg>
+    `;
+  }
+
+  // ---------- Sheet: Add / Edit Record ----------
+  function openRecordSheet(editId) {
+    const editing = editId ? state.records.find(r => r.id === editId) : null;
+    const isEdit = !!editing;
+
+    const ym = editing ? editing.ym : currentYM();
+    const income = editing ? editing.incomeAmount : '';
+    const ret = editing ? editing.returnRate : '';
+    const reb = editing ? editing.rebateRate : '';
+
+    const html = `
+      <form id="recordForm">
+        <div class="form-group">
+          <label class="form-label" for="rfMonth">月份</label>
+          <input class="form-input mono" id="rfMonth" type="month" required value="${ym}" />
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="rfIncome">收益額</label>
+            <div class="input-affix-wrap">
+              <span class="input-affix left">$</span>
+              <input class="form-input mono with-left" id="rfIncome" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${income}" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rfReturn">收益率</label>
+            <div class="input-affix-wrap">
+              <input class="form-input mono with-right" id="rfReturn" type="number" inputmode="decimal" step="0.01" placeholder="0.00" value="${ret}" required />
+              <span class="input-affix right">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="rfRebate">節點手續費返佣 <span class="opt">(%)</span></label>
+          <div class="input-affix-wrap">
+            <input class="form-input mono with-right" id="rfRebate" type="number" inputmode="decimal" step="0.01" placeholder="30.00" value="${reb}" required />
+            <span class="input-affix right">%</span>
+          </div>
+          <p class="form-hint">節點將母帳號收益的指定比例返佣至您的資金帳戶。</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">本月返佣金額預覽</label>
+          <div class="preview-card">
+            <div class="preview-row">
+              <span class="k">初始本金 × 返佣比例</span>
+              <span class="v" id="rfPreviewCalc">$0.00 × 0% = $0.00</span>
+            </div>
+            <div class="preview-row">
+              <span class="k">入帳至資金帳戶</span>
+              <span class="v" id="rfPreview" style="color: var(--gold)">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">${isEdit ? '更新紀錄' : '新增紀錄'}</button>
+          ${isEdit ? `<button type="button" class="btn-ghost danger" id="rfDelete">刪除此筆</button>` : ''}
+        </div>
+      </form>
+    `;
+
+    openSheet(isEdit ? '編輯月度紀錄' : '新增月度紀錄', html, () => {
+      const principal = Number(state.config.initialPrincipal) || 0;
+      const updatePreview = () => {
+        const rb = parseFloat($('#rfRebate').value) || 0;
+        const calc = principal * rb / 100;
+        $('#rfPreviewCalc').textContent = `$${fmtMoney(principal)} × ${fmtPct(rb)} = $${fmtMoney(calc)}`;
+        $('#rfPreview').textContent = `${calc >= 0 ? '+' : ''}$${fmtMoney(calc)}`;
+      };
+      updatePreview();
+      $('#rfRebate').addEventListener('input', updatePreview);
+
+      $('#recordForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ymVal = $('#rfMonth').value;
+        const incVal = parseFloat($('#rfIncome').value);
+        const retVal = parseFloat($('#rfReturn').value);
+        const rbVal = parseFloat($('#rfRebate').value);
+
+        if (!ymVal) { toast('請選擇月份', true); return; }
+        if (!Number.isFinite(incVal)) { toast('請輸入有效收益額', true); return; }
+        if (!Number.isFinite(retVal)) { toast('請輸入有效收益率', true); return; }
+        if (!Number.isFinite(rbVal)) { toast('請輸入有效返佣比例', true); return; }
+
+        // Prevent duplicate month (unless editing same record)
+        const dupIdx = state.records.findIndex(r => r.ym === ymVal && (!isEdit || r.id !== editId));
+        if (dupIdx !== -1) {
+          toast(`${ymPretty(ymVal)} 已存在，請改為編輯`, true);
+          return;
+        }
+
+        if (isEdit) {
+          const idx = state.records.findIndex(r => r.id === editId);
+          state.records[idx] = {
+            ...state.records[idx],
+            ym: ymVal,
+            incomeAmount: incVal,
+            returnRate: retVal,
+            rebateRate: rbVal
+          };
+          toast('紀錄已更新');
+        } else {
+          state.records.push({
+            id: uid(),
+            ym: ymVal,
+            incomeAmount: incVal,
+            returnRate: retVal,
+            rebateRate: rbVal,
+            notes: ''
+          });
+          toast('紀錄已新增');
+        }
+        saveState();
+        closeSheet();
+        renderApp();
+      });
+
+      if (isEdit) {
+        $('#rfDelete').addEventListener('click', () => {
+          if (!confirm(`確定刪除 ${ymPretty(editing.ym)} 紀錄？`)) return;
+          state.records = state.records.filter(r => r.id !== editId);
+          saveState();
+          closeSheet();
+          renderApp();
+          toast('紀錄已刪除');
+        });
+      }
+    });
+  }
+
+  // ---------- Sheet: Settings ----------
+  function openSettingsSheet() {
+    const c = state.config;
+    const html = `
+      <div class="list-card">
+        <div class="list-row">
+          <span class="lk">幣種</span>
+          <span class="lv">${c.currency}</span>
+        </div>
+        <div class="list-row">
+          <span class="lk">初始本金</span>
+          <span class="lv">$${fmtMoney(Number(c.initialPrincipal) || 0)}</span>
+        </div>
+        <div class="list-row">
+          <span class="lk">起始日期</span>
+          <span class="lv">${c.startDate || '—'}</span>
+        </div>
+      </div>
+
+      <form id="settingsForm">
+        <div class="form-group">
+          <label class="form-label" for="setPrincipal">調整初始本金</label>
+          <div class="input-affix-wrap">
+            <span class="input-affix left">$</span>
+            <input class="form-input mono with-left" id="setPrincipal" type="number" inputmode="decimal" step="0.01" min="0" value="${c.initialPrincipal ?? ''}" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="setDate">調整起始日期</label>
+          <input class="form-input mono" id="setDate" type="date" value="${c.startDate || ''}" required />
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">儲存設定</button>
+          <div class="form-actions-row">
+            <button type="button" class="btn-ghost" id="btnBackup">備份資料</button>
+            <button type="button" class="btn-ghost" id="btnRestore">還原資料</button>
+          </div>
+          <button type="button" class="btn-ghost danger" id="btnReset">重置所有資料</button>
+        </div>
+      </form>
+    `;
+
+    openSheet('設定', html, () => {
+      $('#settingsForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const p = parseFloat($('#setPrincipal').value);
+        const d = $('#setDate').value;
+        if (!Number.isFinite(p) || p <= 0) { toast('本金需大於 0', true); return; }
+        if (!d) { toast('請選擇日期', true); return; }
+        state.config.initialPrincipal = p;
+        state.config.startDate = d;
+        saveState();
+        closeSheet();
+        renderApp();
+        toast('設定已更新');
+      });
+
+      $('#btnBackup').addEventListener('click', () => {
+        const data = JSON.stringify(state, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fucheng-2140-backup-${todayISO()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('備份檔已下載');
+      });
+
+      $('#btnRestore').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            if (!parsed.config) throw new Error('無效檔案');
+            state = {
+              config: { ...DEFAULT_STATE.config, ...parsed.config },
+              records: Array.isArray(parsed.records) ? parsed.records : []
+            };
+            saveState();
+            closeSheet();
+            renderApp();
+            toast('資料已還原');
+          } catch (err) {
+            toast('檔案格式錯誤', true);
+          }
+        };
+        input.click();
+      });
+
+      $('#btnReset').addEventListener('click', () => {
+        if (!confirm('確定要重置所有設定與紀錄？此動作無法復原。')) return;
+        if (!confirm('再次確認：所有資料將被清除。')) return;
+        state = structuredClone(DEFAULT_STATE);
+        saveState();
+        closeSheet();
+        renderApp();
+        toast('已重置');
+      });
+    });
+  }
+
+  // ---------- Sheet: Export Summary ----------
+  function openExportSheet() {
+    const t = computeTotals();
+    if (!Number.isFinite(state.config.initialPrincipal)) {
+      toast('請先完成初始設定', true);
+      return;
+    }
+
+    const recList = t.records.length
+      ? t.records.map(r => `${ymPretty(r.ym)}  收益$${fmtMoney(r.incomeAmount)}  ${fmtPct(r.returnRate, 2, true)}  返佣${fmtPct(r.rebateRate)} → $${fmtMoney(r.rebateAmount)}`).join('\n')
+      : '（尚無紀錄）';
+
+    const reportText =
+`━━━━━━━━━━━━━━━━━━━━━━━━
+富程量化 · FGCoin2140  VIP 跟單戰報
+━━━━━━━━━━━━━━━━━━━━━━━━
+產出時間  ${new Date().toLocaleString('zh-TW')}
+起始日期  ${state.config.startDate}
+運行天數  ${t.days} 天
+
+【帳戶總覽】
+總資產淨值       $${fmtMoney(t.totalAsset)}
+累計收益率       ${fmtPct(t.totalReturnPct, 2, true)}
+年化 APR        ${fmtPct(t.apr, 2, true)}
+
+【交易帳戶 · 單位數】
+初始本金         $${fmtMoney(t.principal)}
+最新月份收益     $${fmtMoney(t.latestIncome)}
+帳戶現值         $${fmtMoney(t.tradingAccount)}
+
+【資金帳戶 · 配息】
+累計返佣         $${fmtMoney(t.fundingAccount)}
+平均返佣率       ${fmtPct(t.avgRebateRate, 2)}
+
+【月度紀錄 (${t.records.length})】
+${recList}
+━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+    const html = `
+      <div class="form-group">
+        <label class="form-label">VIP 戰報</label>
+        <textarea class="form-input mono" id="exportText" rows="14" style="font-size: 12px; line-height: 1.6; resize: vertical;" readonly>${escapeHtml(reportText)}</textarea>
+        <p class="form-hint">點擊下方按鈕一鍵複製，可發送至客戶 LINE / Telegram。</p>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-primary" id="btnCopy">複製戰報</button>
+        <button type="button" class="btn-ghost" id="btnDownload">下載文字檔 (.txt)</button>
+      </div>
+    `;
+
+    openSheet('匯出戰報', html, () => {
+      $('#btnCopy').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(reportText);
+          toast('戰報已複製');
+        } catch {
+          $('#exportText').select();
+          document.execCommand('copy');
+          toast('戰報已複製');
+        }
+      });
+      $('#btnDownload').addEventListener('click', () => {
+        const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fucheng-2140-${todayISO()}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('已下載');
+      });
+    });
+  }
+
+  // ---------- Render gateway ----------
+  function renderApp() {
+    if (!state.config.initialPrincipal || !state.config.startDate) {
+      renderOnboard();
+    } else {
+      renderDashboard();
+      // Floating add button
+      ensureFab();
+    }
+  }
+
+  function ensureFab() {
+    let fab = $('#fab');
+    if (!fab) {
+      fab = document.createElement('button');
+      fab.id = 'fab';
+      fab.className = 'fab';
+      fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>新增本月收益`;
+      fab.addEventListener('click', () => openRecordSheet());
+      document.body.appendChild(fab);
+    }
+  }
+
+  // ---------- Boot ----------
+  renderApp();
+
+  // Service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  // Prevent pull-to-refresh weirdness on iOS PWA
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  </script>
+</body>
+</html>
