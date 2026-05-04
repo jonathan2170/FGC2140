@@ -1197,9 +1197,11 @@
        ============================ */
     .toast {
       position: fixed;
-      top: calc(var(--safe-top) + 16px);
+      /* Bottom positioning avoids Dynamic Island / notch overlap on iPhone.
+         Sits above the FAB (FAB is 56px tall + 20px gap from bottom). */
+      bottom: calc(var(--safe-bot) + 96px);
       left: 50%;
-      transform: translate(-50%, -120%);
+      transform: translate(-50%, calc(100% + 40px));
       max-width: 90vw;
       padding: 12px 18px;
       background: color-mix(in srgb, var(--bg-elevated) 95%, transparent);
@@ -1217,8 +1219,11 @@
       align-items: center;
       gap: 8px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      pointer-events: none; /* don't block FAB taps when fading out */
     }
     .toast.show { transform: translate(-50%, 0); }
+    /* When the FAB is not present (viewer mode / sheets), use a smaller offset */
+    body:not(:has(.fab)) .toast { bottom: calc(var(--safe-bot) + 28px); }
     .toast .dot {
       width: 6px; height: 6px; border-radius: 100px; background: var(--profit);
     }
@@ -1258,22 +1263,12 @@
       color: var(--text-primary);
       font-weight: 600;
     }
-    .meta-chip .dot {
-      width: 6px; height: 6px; border-radius: 100px;
-      background: var(--mint);
-      box-shadow: 0 0 8px var(--mint);
-    }
 
     /* Overflow safety */
     .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
-  <!-- Toast -->
-  <div class="toast" id="toast" role="status" aria-live="polite">
-    <span class="dot"></span><span id="toastMsg"></span>
-  </div>
-
   <main id="app"></main>
 
   <!-- Scrim & sheets -->
@@ -1313,7 +1308,7 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USD"},"records":[{"id":"r_wl6yv834on2","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_vzqnxw454hn","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_3z93zy45gkx","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""}],"publishedAt":"2026-05-04T06:13:47.447Z"};
+  const PUBLISHED_STATE = null;
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
@@ -1501,15 +1496,10 @@
   }
 
   // ---------- Toast ----------
-  let toastTimer;
-  function toast(msg, isError = false) {
-    const t = $('#toast');
-    $('#toastMsg').textContent = msg;
-    t.classList.toggle('error', isError);
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
-  }
+  // Disabled — iPhone Dynamic Island and varying device chrome made consistent
+  // placement unreliable across modes. Function kept as no-op so existing
+  // toast(...) call sites stay functional without further refactoring.
+  function toast(_msg, _isError = false) { /* intentionally empty */ }
 
   // ---------- Sheet ----------
   function openSheet(title, html, onMount) {
@@ -1661,10 +1651,10 @@
 
       <!-- Meta chips -->
       <div class="meta-bar anim-in anim-in-1">
-        <span class="meta-chip"><span class="dot"></span>母帳號運行中</span>
+        <span class="meta-chip" style="color: var(--mint);">母帳號運行中</span>
         <span class="meta-chip">已運行 <span class="v">${t.days}</span> 天</span>
         <span class="meta-chip">紀錄筆數 <span class="v">${t.records.length}</span></span>
-        ${canEdit() ? '<span class="meta-chip" style="color: var(--mint); border-color: color-mix(in srgb, var(--mint) 24%, transparent);"><span class="dot" style="background: var(--mint); box-shadow: 0 0 8px var(--mint);"></span>管理員</span>' : ''}
+        ${canEdit() ? '<span class="meta-chip" style="color: var(--mint); border-color: color-mix(in srgb, var(--mint) 24%, transparent);">管理員</span>' : ''}
       </div>
 
       <!-- Hero -->
