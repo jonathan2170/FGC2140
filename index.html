@@ -340,20 +340,7 @@
       letter-spacing: -0.02em;
       color: var(--text-primary);
       line-height: 1.05;
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0;
-      background: transparent;
-      border: none;
-      padding: 0;
-      cursor: pointer;
-      font-family: inherit;
-      text-align: left;
-      -webkit-tap-highlight-color: transparent;
-      transition: opacity 0.15s ease;
-      position: relative;
     }
-    .hero-value:active { opacity: 0.65; }
     .hero-value .currency {
       font-size: 18px;
       color: var(--text-tertiary);
@@ -361,30 +348,6 @@
       margin-right: 4px;
       vertical-align: 4px;
     }
-    .amt-toggle-icon {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-left: 10px;
-      padding: 4px 8px;
-      border-radius: 100px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      color: var(--text-tertiary);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      vertical-align: 6px;
-      align-self: center;
-    }
-    .amt-toggle-icon svg { display: block; }
-    .amt-toggle-label {
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Visual hint that account cards & records are tappable to toggle currency */
-    .account-card.amt-toggle,
-    .record.amt-toggle { cursor: pointer; }
 
     .hero-side {
       text-align: right;
@@ -686,7 +649,7 @@
     .record:active { background: var(--bg-elevated); border-color: var(--border); }
     .record-top {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
@@ -695,43 +658,14 @@
       font-size: 14px;
       font-weight: 600;
       color: var(--text-primary);
-      padding-top: 2px; /* baseline-align with the bigger rebate number */
-    }
-    .record-rebate-stack {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 3px;
-      min-width: 0;
     }
     .record-rebate {
       font-family: 'JetBrains Mono', monospace;
       font-size: 16px;
       font-weight: 700;
       color: var(--profit);
-      line-height: 1.1;
     }
     .record-rebate.neg { color: var(--loss); }
-    .record-rebate-twd {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--text-tertiary);
-      letter-spacing: -0.01em;
-      line-height: 1;
-    }
-    .record-rebate-note {
-      font-family: 'Noto Sans TC', sans-serif;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--mint);
-      background: var(--mint-soft);
-      padding: 2px 7px;
-      border-radius: 100px;
-      line-height: 1.4;
-      white-space: nowrap;
-    }
     .record-meta {
       margin-top: 8px;
       display: flex;
@@ -1337,15 +1271,14 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = null;
+  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USDT","twdRate":32.5},"records":[{"id":"r_ve8qc67db2p","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_qmldvxsdu03","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_7rz9kt5e7tf","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""}],"publishedAt":"2026-05-06T13:01:20.479Z"};
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
     config: {
       initialPrincipal: null,   // number | null
       startDate: null,          // 'YYYY-MM-DD' | null
-      currency: 'USDT',
-      twdRate: 32.5             // USD→TWD exchange rate (admin-editable in settings)
+      currency: 'USD'
     },
     records: []  // [{ id, ym (YYYY-MM), incomeAmount, returnRate, rebateRate, notes }]
   };
@@ -1401,164 +1334,6 @@
     const sign = signed && n > 0 ? '+' : '';
     return sign + n.toFixed(digits) + '%';
   };
-  // ─────────────────────────────────────────────────────────
-  //  USD → TWD live exchange rate
-  //
-  //  Strategy:  live (auto-fetched, cached 6 hr) ▸ cached ▸ manual fallback
-  //  Sources tried in order; first success wins.
-  //    1) Fawaz Ahmed currency-api on jsdelivr (CDN-cached, daily updates)
-  //    2) Same data on a Cloudflare Pages mirror
-  //    3) open.er-api.com (free, no auth, has TWD)
-  //  Each call has a 5-second timeout so a slow API never blocks the page.
-  // ─────────────────────────────────────────────────────────
-  const FX_CACHE_KEY = 'fucheng2140.fx.v1';
-  const FX_TTL_MS = 6 * 3600 * 1000; // 6 hours
-  let liveTwdRate = null; // { rate, fetchedAt, source } | null
-
-  function loadCachedFx() {
-    try {
-      const v = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || 'null');
-      if (v && Number.isFinite(v.rate) && v.fetchedAt) return v;
-    } catch {}
-    return null;
-  }
-  function saveCachedFx(v) {
-    try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify(v)); } catch {}
-  }
-
-  async function fetchWithTimeout(url, ms = 5000) {
-    const ctrl = new AbortController();
-    const id = setTimeout(() => ctrl.abort(), ms);
-    try { return await fetch(url, { signal: ctrl.signal, cache: 'default' }); }
-    finally { clearTimeout(id); }
-  }
-
-  async function fetchTwdRate({ force = false } = {}) {
-    if (!force) {
-      const cached = loadCachedFx();
-      if (cached && Date.now() - cached.fetchedAt < FX_TTL_MS) return cached;
-    }
-    const sources = [
-      { name: 'jsdelivr',     url: 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', parse: j => j?.usd?.twd },
-      { name: 'currency-api', url: 'https://latest.currency-api.pages.dev/v1/currencies/usd.json',                         parse: j => j?.usd?.twd },
-      { name: 'open.er-api',  url: 'https://open.er-api.com/v6/latest/USD',                                                parse: j => j?.rates?.TWD },
-    ];
-    for (const src of sources) {
-      try {
-        const r = await fetchWithTimeout(src.url, 5000);
-        if (!r.ok) continue;
-        const j = await r.json();
-        const rate = src.parse(j);
-        if (Number.isFinite(rate) && rate > 0) {
-          const result = { rate, fetchedAt: Date.now(), source: src.name };
-          saveCachedFx(result);
-          return result;
-        }
-      } catch { /* try next source */ }
-    }
-    return null;
-  }
-
-  // What rate do we display right now?  Live > cached > manual fallback.
-  function getCurrentTwdRate() {
-    if (liveTwdRate && Number.isFinite(liveTwdRate.rate)) return liveTwdRate.rate;
-    const cached = loadCachedFx();
-    if (cached && Number.isFinite(cached.rate)) return cached.rate;
-    return Number(state.config.twdRate) || 32.5;
-  }
-  function getCurrentTwdRateInfo() {
-    if (liveTwdRate) return { ...liveTwdRate, kind: 'live' };
-    const cached = loadCachedFx();
-    if (cached) return { ...cached, kind: 'cached' };
-    return { rate: Number(state.config.twdRate) || 32.5, kind: 'manual' };
-  }
-
-  // Update all NT$ amounts inline without a full re-render
-  function refreshTwdDisplays() {
-    document.querySelectorAll('[data-twd]').forEach(el => {
-      const usd = parseFloat(el.dataset.twd);
-      if (Number.isFinite(usd)) el.textContent = '≈ ' + fmtTwd(usd);
-    });
-  }
-
-  function formatAge(ts) {
-    const ms = Date.now() - ts;
-    if (ms < 60000)    return '剛剛';
-    if (ms < 3600000)  return Math.floor(ms / 60000) + ' 分鐘前';
-    if (ms < 86400000) return Math.floor(ms / 3600000) + ' 小時前';
-    return Math.floor(ms / 86400000) + ' 天前';
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  Display mode: 'usdt' (default) | 'twd'
-  //  User can tap any amount on the dashboard to toggle.
-  // ─────────────────────────────────────────────────────────
-  const DISPLAY_KEY = 'fucheng2140.display.v1';
-  function getDisplayMode() {
-    try { return localStorage.getItem(DISPLAY_KEY) === 'twd' ? 'twd' : 'usdt'; }
-    catch { return 'usdt'; }
-  }
-  function setDisplayMode(m) {
-    try { localStorage.setItem(DISPLAY_KEY, m); } catch {}
-  }
-  function toggleDisplayMode() {
-    const scrollY = window.scrollY;
-    setDisplayMode(getDisplayMode() === 'usdt' ? 'twd' : 'usdt');
-    renderApp();
-    requestAnimationFrame(() => window.scrollTo(0, scrollY));
-  }
-
-  // The currency symbol for current mode
-  function currentSymbol() {
-    return getDisplayMode() === 'twd' ? 'NT$' : '$';
-  }
-
-  // Format a USDT amount in the current display mode.
-  // Returns e.g. "$5,000.00", "+$227.00", "-$50.00" or "NT$163,250", "+NT$7,378".
-  const fmtAmt = (usd, { signed = false } = {}) => {
-    if (!Number.isFinite(usd)) return '—';
-    const mode = getDisplayMode();
-    if (mode === 'twd') {
-      const twd = Math.round(usd * getCurrentTwdRate());
-      const abs = Math.abs(twd).toLocaleString('en-US');
-      if (signed && twd > 0) return '+NT$' + abs;
-      if (twd < 0)           return '-NT$' + abs;
-      return 'NT$' + abs;
-    }
-    // USDT mode
-    const abs = Math.abs(usd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (signed && usd > 0) return '+$' + abs;
-    if (usd < 0)           return '-$' + abs;
-    return '$' + abs;
-  };
-
-  // For rendering the secondary "≈ XXX" subtitle on records: show the OPPOSITE
-  // currency from the current mode.
-  const fmtAltAmt = (usd, { signed = false } = {}) => {
-    if (!Number.isFinite(usd)) return '—';
-    const mode = getDisplayMode();
-    if (mode === 'twd') {
-      // In TWD mode, subtitle shows USDT
-      const abs = Math.abs(usd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      if (signed && usd > 0) return '+$' + abs;
-      if (usd < 0)           return '-$' + abs;
-      return '$' + abs;
-    }
-    // USDT mode → subtitle shows TWD
-    const twd = Math.round(usd * getCurrentTwdRate());
-    const abs = Math.abs(twd).toLocaleString('en-US');
-    if (signed && twd > 0) return '+NT$' + abs;
-    if (twd < 0)           return '-NT$' + abs;
-    return 'NT$' + abs;
-  };
-
-  // USD → NT$ display. Uses live rate if available, falls back to manual.
-  // NTD has no fractional unit, so we round to nearest dollar.
-  const fmtTwd = (usd) => {
-    if (!Number.isFinite(usd)) return '—';
-    const twd = Math.round(usd * getCurrentTwdRate());
-    return 'NT$' + twd.toLocaleString('en-US');
-  };
   const todayISO = () => {
     // Use LOCAL date, not UTC — otherwise users in eastern timezones (e.g. Taiwan)
     // would get yesterday's date when viewing before ~8 AM local time, which makes
@@ -1595,18 +1370,11 @@
   let state = loadState();
 
   function loadState() {
-    // Normalize legacy 'USD' currency values to 'USDT' (the asset is actually USDT)
-    const normalizeConfig = (c) => {
-      const out = { ...c };
-      if (out.currency === 'USD') out.currency = 'USDT';
-      return out;
-    };
-
     if (!IS_ADMIN_URL) {
       // VIEWER: read embedded published snapshot. If none, show empty placeholder.
       if (PUBLISHED_STATE && typeof PUBLISHED_STATE === 'object') {
         return {
-          config: { ...DEFAULT_STATE.config, ...normalizeConfig(PUBLISHED_STATE.config || {}) },
+          config: { ...DEFAULT_STATE.config, ...(PUBLISHED_STATE.config || {}) },
           records: Array.isArray(PUBLISHED_STATE.records) ? PUBLISHED_STATE.records : []
         };
       }
@@ -1618,7 +1386,7 @@
       if (!raw) return structuredClone(DEFAULT_STATE);
       const parsed = JSON.parse(raw);
       return {
-        config: { ...DEFAULT_STATE.config, ...normalizeConfig(parsed.config || {}) },
+        config: { ...DEFAULT_STATE.config, ...(parsed.config || {}) },
         records: Array.isArray(parsed.records) ? parsed.records : []
       };
     } catch (e) {
@@ -1786,19 +1554,15 @@
       const rb = r.rebateAmount;
       const cls = rb >= 0 ? '' : 'neg';
       return `
-        <div class="record amt-toggle" data-id="${r.id}" role="button" tabindex="0">
+        <div class="record" data-id="${r.id}" role="button" tabindex="0">
           <div class="record-top">
             <span class="record-month">${ymPretty(r.ym)}</span>
-            <div class="record-rebate-stack">
-              <span class="record-rebate ${cls}">${fmtAmt(rb, { signed: true })}</span>
-              <span class="record-rebate-twd">≈ ${fmtAltAmt(rb, { signed: true })}</span>
-              <span class="record-rebate-note">20% 帳號返佣</span>
-            </div>
+            <span class="record-rebate ${cls}">${rb >= 0 ? '+' : ''}$${fmtMoney(rb)}</span>
           </div>
           <div class="record-meta">
             <div class="meta-item">
               <span class="k">收益額</span>
-              <span class="v ${r.incomeAmount >= 0 ? 'pos' : 'neg'}">${fmtAmt(r.incomeAmount, { signed: true })}</span>
+              <span class="v ${r.incomeAmount >= 0 ? 'pos' : 'neg'}">${r.incomeAmount >= 0 ? '+' : ''}$${fmtMoney(r.incomeAmount)}</span>
             </div>
             <div class="meta-item">
               <span class="k">收益率</span>
@@ -1861,13 +1625,9 @@
         <div class="hero-row">
           <div>
             <div class="hero-label">總資產淨值</div>
-            <button type="button" class="hero-value amt-toggle" id="heroValueBtn" aria-label="切換 USDT / 新台幣顯示">
-              <span class="currency">${currentSymbol()}</span><span class="mono">${getDisplayMode() === 'twd' ? Math.round(t.totalAsset * getCurrentTwdRate()).toLocaleString('en-US') : fmtMoney(t.totalAsset)}</span>
-              <span class="amt-toggle-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M7 10l-4-4 4-4M3 6h11M17 14l4 4-4 4M21 18H10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span class="amt-toggle-label">${getDisplayMode() === 'twd' ? 'TWD' : 'USDT'}</span>
-              </span>
-            </button>
+            <div class="hero-value">
+              <span class="currency">$</span><span class="mono">${fmtMoney(t.totalAsset)}</span>
+            </div>
           </div>
           <div class="hero-side">
             <div class="hero-label">累計收益率</div>
@@ -1880,12 +1640,12 @@
         <div class="hero-foot">
           <div class="item">
             <span>初始本金</span>
-            <span class="v">${fmtAmt(t.principal)}</span>
+            <span class="v">$${fmtMoney(t.principal)}</span>
           </div>
           <div class="divider"></div>
           <div class="item">
             <span>累計返佣</span>
-            <span class="v" style="color: var(--mint)">${fmtAmt(t.totalRebate, { signed: true })}</span>
+            <span class="v" style="color: var(--mint)">+$${fmtMoney(t.totalRebate)}</span>
           </div>
           <div class="divider"></div>
           <div class="item" style="text-align: right">
@@ -1897,22 +1657,22 @@
 
       <!-- Account cards -->
       <div class="account-grid anim-in anim-in-2">
-        <div class="account-card trading amt-toggle">
+        <div class="account-card trading">
           <div class="badge">
             <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             單位數
           </div>
           <div class="name">交易帳戶 · 本金</div>
-          <div class="value">${fmtAmt(t.tradingAccount)}</div>
+          <div class="value"><span class="currency">$</span>${fmtMoney(t.tradingAccount)}</div>
           <div class="sub">本金 + 最新月份收益</div>
         </div>
-        <div class="account-card funding amt-toggle">
+        <div class="account-card funding">
           <div class="badge">
             <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 10h5a2 2 0 110 4H10a2 2 0 100 4h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             配息
           </div>
           <div class="name">資金帳戶 · 返佣金額</div>
-          <div class="value" style="color: var(--gold)">${fmtAmt(t.fundingAccount)}</div>
+          <div class="value" style="color: var(--gold)"><span class="currency">$</span>${fmtMoney(t.fundingAccount)}</div>
           <div class="sub">節點手續費返佣累計</div>
         </div>
       </div>
@@ -2003,32 +1763,23 @@
     // Theme toggle is available to everyone (admin & viewer)
     wireThemeBtn();
 
-    // Currency toggle: hero + account cards are always tappable to toggle.
-    // Tapping anywhere on these elements switches USDT ⇄ TWD display globally.
-    const heroBtn = document.getElementById('heroValueBtn');
-    if (heroBtn) heroBtn.addEventListener('click', toggleDisplayMode);
-    document.querySelectorAll('.account-card.amt-toggle').forEach(el => {
-      el.addEventListener('click', toggleDisplayMode);
-    });
-
     // Wire up edit actions only for admin
     if (canEdit()) {
       const sBtn = $('#btnSettings'); if (sBtn) sBtn.addEventListener('click', () => openSettingsSheet());
       const eBtn = $('#btnExport');   if (eBtn) eBtn.addEventListener('click', () => openExportSheet());
       const aBtn = $('#btnAddInline'); if (aBtn) aBtn.addEventListener('click', () => openRecordSheet());
 
-      // Admin: tapping a record opens edit sheet (NOT currency toggle)
+      // Records click -> edit
       $$('.record').forEach(el => {
         el.style.cursor = 'pointer';
-        el.classList.remove('amt-toggle'); // reclaim from generic toggle handler
         el.addEventListener('click', () => openRecordSheet(el.dataset.id));
       });
     } else {
-      // Viewer: records aren't editable, so let them toggle currency too
+      // Viewers: records are not interactive
       $$('.record').forEach(el => {
+        el.style.cursor = 'default';
         el.removeAttribute('role');
         el.removeAttribute('tabindex');
-        el.addEventListener('click', toggleDisplayMode);
       });
     }
 
@@ -2345,7 +2096,7 @@
       <div class="list-card">
         <div class="list-row">
           <span class="lk">幣種</span>
-          <span class="lv">USDT</span>
+          <span class="lv">${c.currency}</span>
         </div>
         <div class="list-row">
           <span class="lk">初始本金</span>
@@ -2354,10 +2105,6 @@
         <div class="list-row">
           <span class="lk">起始日期</span>
           <span class="lv">${c.startDate || '—'}</span>
-        </div>
-        <div class="list-row">
-          <span class="lk">USDT → TWD 匯率</span>
-          <span class="lv" id="fxRateSummary">${getCurrentTwdRate().toFixed(4)}</span>
         </div>
       </div>
 
@@ -2372,20 +2119,6 @@
         <div class="form-group">
           <label class="form-label" for="setDate">調整起始日期</label>
           <input class="form-input mono" id="setDate" type="date" value="${c.startDate || ''}" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label">USDT → TWD 匯率（即時）</label>
-          <div class="preview-card" id="fxLiveCard">
-            <!-- Filled in by mountFxCard() right after sheet open -->
-          </div>
-          <p class="form-hint">每 6 小時自動更新一次。抓取失敗時會使用下方手動匯率。</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="setTwdRate">手動匯率（離線備用）</label>
-          <div class="input-affix-wrap">
-            <input class="form-input mono with-right" id="setTwdRate" type="number" inputmode="decimal" step="0.01" min="0" value="${c.twdRate ?? 32.5}" required />
-            <span class="input-affix right">NT$/$</span>
-          </div>
         </div>
         <div class="form-actions">
           <button type="submit" class="btn-primary">儲存設定</button>
@@ -2416,67 +2149,14 @@
     `;
 
     openSheet('設定', html, () => {
-      // Source labels for the live card
-      const SOURCE_LABEL = { jsdelivr: 'jsDelivr', 'currency-api': 'Currency API', 'open.er-api': 'open.er-api.com' };
-
-      function renderFxCard() {
-        const info = getCurrentTwdRateInfo();
-        const card = $('#fxLiveCard');
-        if (!card) return;
-        const sourceText =
-          info.kind === 'live'   ? `即時 · ${SOURCE_LABEL[info.source] || info.source} · ${formatAge(info.fetchedAt)}` :
-          info.kind === 'cached' ? `快取 · ${SOURCE_LABEL[info.source] || info.source} · ${formatAge(info.fetchedAt)}` :
-                                   `手動匯率（尚未抓取到即時匯率）`;
-        const dotColor = info.kind === 'live' ? 'var(--profit)' : info.kind === 'cached' ? 'var(--gold)' : 'var(--text-muted)';
-        card.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            <div style="min-width: 0;">
-              <div class="mono" style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;">
-                ${info.rate.toFixed(4)}
-                <span style="font-size: 11px; color: var(--text-tertiary); font-weight: 500; margin-left: 4px;">NT$/$</span>
-              </div>
-              <div style="margin-top: 4px; font-size: 11px; color: var(--text-tertiary); font-family: 'Noto Sans TC', sans-serif; display: flex; align-items: center; gap: 6px;">
-                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${dotColor};"></span>
-                ${sourceText}
-              </div>
-            </div>
-            <button type="button" id="btnRefreshFx" class="btn-ghost" style="height: 38px; padding: 0 14px; width: auto; flex-shrink: 0;">
-              <span id="btnRefreshFxLabel">重新抓取</span>
-            </button>
-          </div>
-        `;
-        $('#btnRefreshFx').addEventListener('click', async () => {
-          const lbl = $('#btnRefreshFxLabel');
-          if (!lbl) return;
-          lbl.textContent = '抓取中…';
-          $('#btnRefreshFx').disabled = true;
-          const fresh = await fetchTwdRate({ force: true });
-          if (fresh) {
-            liveTwdRate = fresh;
-            renderFxCard();
-            // Update the summary row + any TWD displays underneath the sheet
-            const sum = document.getElementById('fxRateSummary');
-            if (sum) sum.textContent = fresh.rate.toFixed(4);
-            refreshTwdDisplays();
-          } else {
-            lbl.textContent = '抓取失敗，請稍後再試';
-            setTimeout(() => { renderFxCard(); }, 1800);
-          }
-        });
-      }
-      renderFxCard();
-
       $('#settingsForm').addEventListener('submit', (e) => {
         e.preventDefault();
         const p = parseFloat($('#setPrincipal').value);
         const d = $('#setDate').value;
-        const tr = parseFloat($('#setTwdRate').value);
         if (!Number.isFinite(p) || p <= 0) { toast('本金需大於 0', true); return; }
         if (!d) { toast('請選擇日期', true); return; }
-        if (!Number.isFinite(tr) || tr <= 0) { toast('匯率需大於 0', true); return; }
         state.config.initialPrincipal = p;
         state.config.startDate = d;
-        state.config.twdRate = tr;
         saveState();
         closeSheet();
         renderApp();
@@ -2894,21 +2574,7 @@ ${recList}
   }
 
   // ---------- Boot ----------
-  // 1) Use any cached FX rate immediately so first paint has the best rate available
-  liveTwdRate = loadCachedFx();
-  // 2) Render the app
   renderApp();
-  // 3) Fetch a fresh rate in the background; if it differs from cached, update displays in-place
-  (async () => {
-    const fresh = await fetchTwdRate();
-    if (fresh) {
-      const prev = liveTwdRate?.rate;
-      liveTwdRate = fresh;
-      if (!Number.isFinite(prev) || Math.abs(prev - fresh.rate) > 0.001) {
-        refreshTwdDisplays();
-      }
-    }
-  })();
 
   // Service worker
   if ('serviceWorker' in navigator) {
