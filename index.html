@@ -326,6 +326,11 @@
       position: relative;
       z-index: 1;
     }
+    .hero-label-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
     .hero-label {
       font-size: 11px;
       letter-spacing: 0.14em;
@@ -340,18 +345,9 @@
       letter-spacing: -0.02em;
       color: var(--text-primary);
       line-height: 1.05;
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0;
-      background: transparent;
-      border: none;
-      padding: 0;
       cursor: pointer;
-      font-family: inherit;
-      text-align: left;
       -webkit-tap-highlight-color: transparent;
       transition: opacity 0.15s ease;
-      position: relative;
     }
     .hero-value:active { opacity: 0.65; }
     .hero-value .currency {
@@ -361,23 +357,27 @@
       margin-right: 4px;
       vertical-align: 4px;
     }
-    .amt-toggle-icon {
+    /* Currency-toggle pill that sits next to the 總資產淨值 label */
+    .amt-toggle-btn {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      margin-left: 10px;
-      padding: 4px 8px;
+      padding: 3px 9px 3px 7px;
       border-radius: 100px;
       background: var(--bg-elevated);
       border: 1px solid var(--border);
       color: var(--text-tertiary);
       font-size: 10px;
       font-weight: 600;
-      letter-spacing: 0.06em;
-      vertical-align: 6px;
-      align-self: center;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      line-height: 1;
     }
-    .amt-toggle-icon svg { display: block; }
+    .amt-toggle-btn:active { opacity: 0.6; transform: scale(0.96); }
+    .amt-toggle-btn svg { display: block; }
     .amt-toggle-label {
       font-family: 'JetBrains Mono', monospace;
     }
@@ -692,29 +692,30 @@
     }
     .record-month {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 600;
       color: var(--text-primary);
-      padding-top: 2px; /* baseline-align with the bigger rebate number */
+      padding-top: 4px; /* visually centered with the larger rebate's cap-height */
     }
     .record-rebate-stack {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 3px;
+      gap: 4px;
       min-width: 0;
     }
     .record-rebate {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 16px;
+      font-size: 22px;
       font-weight: 700;
+      letter-spacing: -0.01em;
       color: var(--profit);
-      line-height: 1.1;
+      line-height: 1.05;
     }
     .record-rebate.neg { color: var(--loss); }
     .record-rebate-twd {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-tertiary);
       letter-spacing: -0.01em;
@@ -727,14 +728,17 @@
       letter-spacing: 0.04em;
       color: var(--mint);
       background: var(--mint-soft);
-      padding: 2px 7px;
+      padding: 3px 9px;
       border-radius: 100px;
       line-height: 1.4;
       white-space: nowrap;
+      margin-left: auto;        /* pushes the pill to the right edge */
+      align-self: flex-end;     /* aligns with bottom of the value text in meta-items */
     }
     .record-meta {
-      margin-top: 8px;
+      margin-top: 10px;
       display: flex;
+      align-items: flex-end;
       gap: 14px;
       flex-wrap: wrap;
     }
@@ -1337,7 +1341,7 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USDT","twdRate":32.5},"records":[{"id":"r_ve8qc67db2p","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_qmldvxsdu03","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_7rz9kt5e7tf","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""}],"publishedAt":"2026-05-06T13:24:46.000Z"};
+  const PUBLISHED_STATE = null;
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
@@ -1720,7 +1724,7 @@
     const html = `
       <div class="onboard-hero">
         <div class="onboard-logo"><img src="${LOGO_DATA}" alt="富程量化" /></div>
-        <div class="onboard-brand-line">FGCoin · 2140</div>
+        <div class="onboard-brand-line">FGCoin2140</div>
         <h1 class="onboard-title">歡迎進入富程量化</h1>
         <p class="onboard-sub">設定您的母帳號初始資金與運行起始日，<br/>系統將為您計算累計返佣與年化報酬率 APR。</p>
       </div>
@@ -1792,7 +1796,6 @@
             <div class="record-rebate-stack">
               <span class="record-rebate ${cls}">${fmtAmt(rb, { signed: true })}</span>
               <span class="record-rebate-twd">≈ ${fmtAltAmt(rb, { signed: true })}</span>
-              <span class="record-rebate-note">20% 帳號返佣</span>
             </div>
           </div>
           <div class="record-meta">
@@ -1808,6 +1811,7 @@
               <span class="k">節點返佣</span>
               <span class="v">${fmtPct(r.rebateRate, 2)}</span>
             </div>
+            <span class="record-rebate-note">20% 帳號返佣</span>
           </div>
         </div>
       `;
@@ -1860,14 +1864,16 @@
       <section class="hero anim-in anim-in-1">
         <div class="hero-row">
           <div>
-            <div class="hero-label">總資產淨值</div>
-            <button type="button" class="hero-value amt-toggle" id="heroValueBtn" aria-label="切換 USDT / 新台幣顯示">
-              <span class="currency">${currentSymbol()}</span><span class="mono">${getDisplayMode() === 'twd' ? Math.round(t.totalAsset * getCurrentTwdRate()).toLocaleString('en-US') : fmtMoney(t.totalAsset)}</span>
-              <span class="amt-toggle-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M7 10l-4-4 4-4M3 6h11M17 14l4 4-4 4M21 18H10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="hero-label-row">
+              <span class="hero-label">總資產淨值</span>
+              <button type="button" class="amt-toggle-btn" id="heroValueBtn" aria-label="切換 USDT / 新台幣顯示">
+                <svg viewBox="0 0 24 24" fill="none" width="11" height="11"><path d="M7 10l-4-4 4-4M3 6h11M17 14l4 4-4 4M21 18H10" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span class="amt-toggle-label">${getDisplayMode() === 'twd' ? 'TWD' : 'USDT'}</span>
-              </span>
-            </button>
+              </button>
+            </div>
+            <div class="hero-value amt-toggle" id="heroValueDisplay">
+              <span class="currency">${currentSymbol()}</span><span class="mono">${getDisplayMode() === 'twd' ? Math.round(t.totalAsset * getCurrentTwdRate()).toLocaleString('en-US') : fmtMoney(t.totalAsset)}</span>
+            </div>
           </div>
           <div class="hero-side">
             <div class="hero-label">累計收益率</div>
@@ -1995,7 +2001,7 @@
         </a>
 
         <div class="footer-fineprint">
-          推薦連結為合作邀請<span class="sep">·</span>富程量化 FGCoin · 2140
+          推薦連結為合作邀請<span class="sep">·</span>富程量化 FGCoin2140
         </div>
       </footer>
     `;
@@ -2003,10 +2009,12 @@
     // Theme toggle is available to everyone (admin & viewer)
     wireThemeBtn();
 
-    // Currency toggle: hero + account cards are always tappable to toggle.
-    // Tapping anywhere on these elements switches USDT ⇄ TWD display globally.
+    // Currency toggle: hero pill + hero value + account cards are all tappable
+    // to toggle. Tapping anywhere on these switches USDT ⇄ TWD globally.
     const heroBtn = document.getElementById('heroValueBtn');
     if (heroBtn) heroBtn.addEventListener('click', toggleDisplayMode);
+    const heroVal = document.getElementById('heroValueDisplay');
+    if (heroVal) heroVal.addEventListener('click', toggleDisplayMode);
     document.querySelectorAll('.account-card.amt-toggle').forEach(el => {
       el.addEventListener('click', toggleDisplayMode);
     });
@@ -2689,7 +2697,7 @@ ${recList}
     const html = `
       <div class="onboard-hero">
         <div class="onboard-logo"><img src="${LOGO_DATA}" alt="富程量化" /></div>
-        <div class="onboard-brand-line">FGCoin · 2140</div>
+        <div class="onboard-brand-line">FGCoin2140</div>
         <h1 class="onboard-title">設定管理員 PIN</h1>
         <p class="onboard-sub">您是首次以管理員身份進入。<br/>請設定 4–6 位數字 PIN，後續登打資料前都會驗證。</p>
       </div>
@@ -2819,7 +2827,7 @@ ${recList}
       <div class="container" style="padding-top: 24px;">
         <div class="onboard-hero">
           <div class="onboard-logo"><img src="${LOGO_DATA}" alt="富程量化" /></div>
-          <div class="onboard-brand-line">FGCoin · 2140</div>
+          <div class="onboard-brand-line">FGCoin2140</div>
           <h1 class="onboard-title">即將公布績效</h1>
           <p class="onboard-sub">母帳號跟單戰報尚未發布，<br/>請稍候管理員更新最新資料。</p>
         </div>
@@ -2870,7 +2878,7 @@ ${recList}
           </div>
           <svg class="footer-arrow" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H8M17 7v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
-        <div class="footer-fineprint">推薦連結為合作邀請<span class="sep">·</span>富程量化 FGCoin · 2140</div>
+        <div class="footer-fineprint">推薦連結為合作邀請<span class="sep">·</span>富程量化 FGCoin2140</div>
       </footer>
     `;
   }
