@@ -233,27 +233,33 @@
        ============================ */
     .topbar {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       padding: 8px 18px 18px;
+      gap: 12px;
     }
     .brand {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      align-items: flex-start;
+      gap: 11px;
+      min-width: 0;
+      flex: 1;
     }
     .brand-logo {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      display: grid;
-      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      object-fit: cover;
       flex-shrink: 0;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      display: block;
+      margin-top: 2px;
     }
-    .brand-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .brand-text {
+      min-width: 0;
+      flex: 1;
+    }
     .brand-name {
       display: flex;
       flex-direction: column;
@@ -273,6 +279,19 @@
       color: var(--mint);
       text-transform: uppercase;
       margin-top: 2px;
+    }
+    .brand-motto {
+      margin-top: 6px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 10.5px;
+      line-height: 1.55;
+      letter-spacing: 0.04em;
+      color: var(--text-tertiary);
+      max-width: 22em;
+    }
+    .top-actions {
+      flex-shrink: 0;
+      margin-top: 4px;
     }
     .icon-btn {
       width: 40px;
@@ -1775,9 +1794,13 @@
     document.getElementById('app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <div class="brand-name">
-            <span class="zh">富程量化</span>
-            <span class="en">FGCoin2140</span>
+          <img class="brand-logo" src="${LOGO_DATA}" alt="" />
+          <div class="brand-text">
+            <div class="brand-name">
+              <span class="zh">富程量化</span>
+              <span class="en">FGCoin2140</span>
+            </div>
+            <div class="brand-motto">專注倉位管理，持續關注市場，跟時間做朋友，穿越牛熊，自由過生活。</div>
           </div>
         </div>
         <div class="top-actions">
@@ -1860,9 +1883,13 @@
       <!-- Top bar -->
       <header class="topbar anim-in">
         <div class="brand">
-          <div class="brand-name">
-            <span class="zh">富程量化</span>
-            <span class="en">FGCoin2140</span>
+          <img class="brand-logo" src="${LOGO_DATA}" alt="" />
+          <div class="brand-text">
+            <div class="brand-name">
+              <span class="zh">富程量化</span>
+              <span class="en">FGCoin2140</span>
+            </div>
+            <div class="brand-motto">專注倉位管理，持續關注市場，跟時間做朋友，穿越牛熊，自由過生活。</div>
           </div>
         </div>
         <div class="top-actions">
@@ -2752,9 +2779,13 @@ ${recList}
     document.getElementById('app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <div class="brand-name">
-            <span class="zh">富程量化</span>
-            <span class="en">FGCoin2140</span>
+          <img class="brand-logo" src="${LOGO_DATA}" alt="" />
+          <div class="brand-text">
+            <div class="brand-name">
+              <span class="zh">富程量化</span>
+              <span class="en">FGCoin2140</span>
+            </div>
+            <div class="brand-motto">專注倉位管理，持續關注市場，跟時間做朋友，穿越牛熊，自由過生活。</div>
           </div>
         </div>
         <div class="top-actions">
@@ -2801,9 +2832,13 @@ ${recList}
     document.getElementById('app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <div class="brand-name">
-            <span class="zh">富程量化</span>
-            <span class="en">FGCoin2140</span>
+          <img class="brand-logo" src="${LOGO_DATA}" alt="" />
+          <div class="brand-text">
+            <div class="brand-name">
+              <span class="zh">富程量化</span>
+              <span class="en">FGCoin2140</span>
+            </div>
+            <div class="brand-motto">專注倉位管理，持續關注市場，跟時間做朋友，穿越牛熊，自由過生活。</div>
           </div>
         </div>
         <div class="top-actions">
@@ -2845,9 +2880,13 @@ ${recList}
     document.getElementById('app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <div class="brand-name">
-            <span class="zh">富程量化</span>
-            <span class="en">FGCoin2140</span>
+          <img class="brand-logo" src="${LOGO_DATA}" alt="" />
+          <div class="brand-text">
+            <div class="brand-name">
+              <span class="zh">富程量化</span>
+              <span class="en">FGCoin2140</span>
+            </div>
+            <div class="brand-motto">專注倉位管理，持續關注市場，跟時間做朋友，穿越牛熊，自由過生活。</div>
           </div>
         </div>
         <div class="top-actions">
