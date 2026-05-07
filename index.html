@@ -421,6 +421,7 @@
       font-family: 'JetBrains Mono', monospace;
     }
     .pill.loss { background: var(--loss-soft); color: var(--loss); }
+    .pill.gold { background: var(--gold-soft); color: var(--gold); }
     .pill.neutral { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
 
     /* Months strip (replaces chart) */
@@ -574,6 +575,21 @@
     }
     .account-card.trading { border-color: rgba(93, 211, 200, 0.18); }
     .account-card.funding { border-color: rgba(212, 167, 92, 0.18); }
+    /* Top row of each account card: badge on the left, %-contribution pill on the right */
+    .account-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .account-card-top .badge { margin-bottom: 0; }
+    .account-card-top .pill {
+      /* slightly smaller than the hero pill so it sits proportionally in the card */
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .account-card .badge {
       display: inline-flex;
       align-items: center;
@@ -1417,7 +1433,7 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USDT","twdRate":32.5},"records":[{"id":"r_ve8qc67db2p","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_qmldvxsdu03","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_7rz9kt5e7tf","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""}],"publishedAt":"2026-05-07T04:06:37.426Z"};
+  const PUBLISHED_STATE = null;
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
@@ -1744,6 +1760,9 @@
 
     // 累計收益率 = (最新收益 + 累計返佣) ÷ 本金
     const totalReturnPct = principal > 0 ? ((latestIncome + totalRebate) / principal) * 100 : 0;
+    // Breakdown: how much of the total return comes from each pot
+    const tradingReturnPct = principal > 0 ? (latestIncome / principal) * 100 : 0;
+    const fundingReturnPct = principal > 0 ? (totalRebate / principal) * 100 : 0;
 
     let days = 1;
     let apr = 0;
@@ -1766,6 +1785,7 @@
     return {
       principal, records, totalRebate, totalIncome, latestIncome,
       tradingAccount, fundingAccount, totalAsset, totalReturnPct,
+      tradingReturnPct, fundingReturnPct,
       apr, days, avgMonthlyReturn, avgRebateRate
     };
   }
@@ -1988,9 +2008,12 @@
       <!-- Account cards -->
       <div class="account-grid anim-in anim-in-2">
         <div class="account-card trading amt-toggle">
-          <div class="badge">
-            <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            單位數
+          <div class="account-card-top">
+            <div class="badge">
+              <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              單位數
+            </div>
+            <span class="pill ${t.tradingReturnPct >= 0 ? '' : 'loss'}">${fmtPct(t.tradingReturnPct, 2, true)}</span>
           </div>
           <div class="name">交易帳戶 · 本月增值</div>
           <div class="value" style="color: ${t.latestIncome >= 0 ? 'var(--profit)' : 'var(--loss)'}">${fmtAmt(t.latestIncome, { signed: true })}</div>
@@ -2001,9 +2024,12 @@
           </div>
         </div>
         <div class="account-card funding amt-toggle">
-          <div class="badge">
-            <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 10h5a2 2 0 110 4H10a2 2 0 100 4h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            配息
+          <div class="account-card-top">
+            <div class="badge">
+              <svg viewBox="0 0 24 24" fill="none" width="10" height="10"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9 10h5a2 2 0 110 4H10a2 2 0 100 4h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              配息
+            </div>
+            <span class="pill gold">${fmtPct(t.fundingReturnPct, 2, true)}</span>
           </div>
           <div class="name">資金帳戶 · 返佣金額</div>
           <div class="value" style="color: var(--gold)">${fmtAmt(t.fundingAccount, { signed: true })}</div>
