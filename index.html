@@ -376,6 +376,24 @@
       margin-right: 4px;
       vertical-align: 4px;
     }
+    /* Withdrawal reconciliation line under the hero value (only when 提領 > 0) */
+    .hero-withdraw-note {
+      margin-top: 7px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .hero-withdraw-note .hw-v {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+    }
+    .hero-withdraw-note .hw-sep { color: var(--text-muted); }
     /* Currency-toggle pill that sits next to the 總資產淨值 label */
     .amt-toggle-btn {
       display: inline-flex;
@@ -646,6 +664,13 @@
     .account-card .sub-flow .sub-to {
       color: var(--text-secondary);
       font-weight: 600;
+    }
+    .account-card .sub-withdraw {
+      margin-top: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: -0.01em;
     }
 
     /* ============================
@@ -1433,7 +1458,7 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USDT","twdRate":32.5},"records":[{"id":"r_wl6yv834on2","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_vzqnxw454hn","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_3z93zy45gkx","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""},{"id":"r_16vgmxqg2vu","ym":"2026-06","incomeAmount":432.13,"returnRate":8.65,"rebateRate":1.18,"notes":""}],"publishedAt":"2026-06-02T07:57:45.509Z"};
+  const PUBLISHED_STATE = null;
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
@@ -1441,7 +1466,8 @@
       initialPrincipal: null,   // number | null
       startDate: null,          // 'YYYY-MM-DD' | null
       currency: 'USDT',
-      twdRate: 32.5             // USD→TWD exchange rate (admin-editable in settings)
+      twdRate: 32.5,            // USD→TWD exchange rate (admin-editable in settings)
+      totalWithdrawal: 0        // 主帳號累計提領金額（USDT）
     },
     records: []  // [{ id, ym (YYYY-MM), incomeAmount, returnRate, rebateRate, notes }]
   };
@@ -1741,6 +1767,7 @@
 
   function computeTotals() {
     const principal = Number(state.config.initialPrincipal) || 0;
+    const totalWithdrawal = Math.max(0, Number(state.config.totalWithdrawal) || 0);
     const records = state.records
       .map(r => computeRecord(r, principal))
       .sort((a, b) => a.ym.localeCompare(b.ym));
@@ -1748,17 +1775,25 @@
     const totalRebate = records.reduce((s, r) => s + r.rebateAmount, 0);
     const totalIncome = records.reduce((s, r) => s + (Number(r.incomeAmount) || 0), 0);
 
-    // 最新月份收益額（依年月排序後的最後一筆）
-    const latestIncome = records.length
+    // 最新月份收益額（依年月排序後的最後一筆）— 這是「OKX 當下餘額 − 本金」的原始快照，
+    // 提領後餘額變少，此數字會自然下降。
+    const rawLatestIncome = records.length
       ? Number(records[records.length - 1].incomeAmount) || 0
       : 0;
 
-    // 帳戶現值
-    const tradingAccount = principal + latestIncome;          // 交易帳戶 = 本金 + 最新月份收益
-    const fundingAccount = totalRebate;                       // 資金帳戶 = 累計返佣
-    const totalAsset = principal + latestIncome + totalRebate; // 總資產 = 三者合計
+    // 績效用收益：把累計提領「加回」，讓報酬率不受提領影響。
+    // （提領是已實現獲利/本金取出，不是虧損）
+    const latestIncome = rawLatestIncome + totalWithdrawal;   // 策略真實淨利（績效）
 
-    // 累計收益率 = (最新收益 + 累計返佣) ÷ 本金
+    // 帳戶現值（實際持有）— 用原始快照，已反映提領後的真實餘額
+    const tradingAccount = principal + rawLatestIncome;        // 交易帳戶目前餘額（提領後）
+    const tradingAccountPerf = principal + latestIncome;       // 交易帳戶績效值（含已提領）
+    const fundingAccount = totalRebate;                        // 資金帳戶 = 累計返佣
+    const totalAsset = principal + rawLatestIncome + totalRebate; // 總資產淨值 = 目前實際持有
+    // 績效總價值（含已提領）= 用報酬率反推的總價值，數字才對得起來
+    const totalValuePerf = principal + latestIncome + totalRebate;
+
+    // 累計收益率 = (績效收益 + 累計返佣) ÷ 本金 — 提領後不變
     const totalReturnPct = principal > 0 ? ((latestIncome + totalRebate) / principal) * 100 : 0;
     // Breakdown: how much of the total return comes from each pot
     const tradingReturnPct = principal > 0 ? (latestIncome / principal) * 100 : 0;
@@ -1768,7 +1803,7 @@
     let apr = 0;
     if (state.config.startDate) {
       days = daysBetween(state.config.startDate, todayISO());
-      // APR：(本金 + 最新收益 + 累計返佣) ÷ 本金 · 年化  ≡  總成長率年化
+      // APR：(績效收益 + 累計返佣) ÷ 本金 · 年化  ≡  總成長率年化
       apr = principal > 0 && days > 0
         ? ((latestIncome + totalRebate) / principal) * (365 / days) * 100
         : 0;
@@ -1783,8 +1818,9 @@
       : 0;
 
     return {
-      principal, records, totalRebate, totalIncome, latestIncome,
-      tradingAccount, fundingAccount, totalAsset, totalReturnPct,
+      principal, records, totalRebate, totalIncome, latestIncome, rawLatestIncome,
+      totalWithdrawal, totalValuePerf,
+      tradingAccount, tradingAccountPerf, fundingAccount, totalAsset, totalReturnPct,
       tradingReturnPct, fundingReturnPct,
       apr, days, avgMonthlyReturn, avgRebateRate
     };
@@ -1978,6 +2014,13 @@
             <div class="hero-value amt-toggle" id="heroValueDisplay">
               <span class="currency">${currentSymbol()}</span><span class="mono">${getDisplayMode() === 'twd' ? Math.round(t.totalAsset * getCurrentTwdRate()).toLocaleString('en-US') : fmtMoney(t.totalAsset)}</span>
             </div>
+            ${t.totalWithdrawal > 0 ? `
+            <div class="hero-withdraw-note">
+              <span class="hw-item">已提領 <span class="hw-v">${fmtAmt(t.totalWithdrawal)}</span></span>
+              <span class="hw-sep">·</span>
+              <span class="hw-item">含提領總值 <span class="hw-v">${fmtAmt(t.totalValuePerf)}</span></span>
+            </div>
+            ` : ''}
           </div>
           <div class="hero-side">
             <div class="hero-label">累計收益率</div>
@@ -1998,6 +2041,13 @@
             <span class="v" style="color: var(--mint)">${fmtAmt(t.totalRebate, { signed: true })}</span>
           </div>
           <div class="divider"></div>
+          ${t.totalWithdrawal > 0 ? `
+          <div class="item">
+            <span>累計提領</span>
+            <span class="v" style="color: var(--gold)">${fmtAmt(t.totalWithdrawal)}</span>
+          </div>
+          <div class="divider"></div>
+          ` : ''}
           <div class="item" style="text-align: right">
             <span>起始日</span>
             <span class="v">${state.config.startDate || '—'}</span>
@@ -2020,8 +2070,9 @@
           <div class="sub sub-flow">
             <span class="sub-from">${fmtAmt(t.principal)}</span>
             <span class="sub-arrow">→</span>
-            <span class="sub-to">${fmtAmt(t.tradingAccount)}</span>
+            <span class="sub-to">${fmtAmt(t.tradingAccountPerf)}</span>
           </div>
+          ${t.totalWithdrawal > 0 ? `<div class="sub sub-withdraw">提領後餘額 ${fmtAmt(t.tradingAccount)}</div>` : ''}
         </div>
         <div class="account-card funding amt-toggle">
           <div class="account-card-top">
@@ -2192,11 +2243,16 @@
       return daysBetween(startDate, capISO);
     };
 
+    const totalWithdrawal = Math.max(0, Number(state.config.totalWithdrawal) || 0);
+
     // Pre-compute per-month APR using the dashboard formula, walked forward
     // through records (oldest → newest) so we can accumulate rebates.
+    // The cumulative withdrawal is added back to the LATEST month only (it
+    // represents current state), so the last card's APR matches the dashboard.
     let cumulativeRebate = 0;
-    const aprs = records.map(r => {
-      const inc = Number(r.incomeAmount) || 0;
+    const aprs = records.map((r, idx) => {
+      const isLast = idx === records.length - 1;
+      const inc = (Number(r.incomeAmount) || 0) + (isLast ? totalWithdrawal : 0);
       const rebAmt = principal * (Number(r.rebateRate) || 0) / 100;
       cumulativeRebate += rebAmt;
       const days = daysToEndOf(r.ym);
@@ -2213,11 +2269,15 @@
       return fmtPct(v, 2, true);
     };
 
+    const withdrawalPct = principal > 0 ? (totalWithdrawal / principal) * 100 : 0;
+
     const cards = records.map((r, i) => {
-      const ret = Number(r.returnRate) || 0;
+      const isLatest = i === records.length - 1;
+      // Latest month adds back the withdrawal's % effect so its 收益率 reflects
+      // true performance (consistent with the dashboard), not the post-withdrawal balance.
+      const ret = (Number(r.returnRate) || 0) + (isLatest ? withdrawalPct : 0);
       const reb = Number(r.rebateRate) || 0;
       const apr = aprs[i];
-      const isLatest = i === records.length - 1;
       const prev = i > 0 ? records[i - 1] : null;
 
       const arrowFor = (curr, prevVal) => {
@@ -2477,6 +2537,12 @@
           <span class="lk">起始日期</span>
           <span class="lv">${c.startDate || '—'}</span>
         </div>
+        ${(Number(c.totalWithdrawal) || 0) > 0 ? `
+        <div class="list-row">
+          <span class="lk">累計提領</span>
+          <span class="lv">$${fmtMoney(Number(c.totalWithdrawal) || 0)}</span>
+        </div>
+        ` : ''}
         <div class="list-row">
           <span class="lk">USDT → TWD 匯率</span>
           <span class="lv" id="fxRateSummary">${getCurrentTwdRate().toFixed(4)}</span>
@@ -2494,6 +2560,14 @@
         <div class="form-group">
           <label class="form-label" for="setDate">調整起始日期</label>
           <input class="form-input mono" id="setDate" type="date" value="${c.startDate || ''}" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="setWithdrawal">主帳號累計提領</label>
+          <div class="input-affix-wrap">
+            <span class="input-affix left">$</span>
+            <input class="form-input mono with-left" id="setWithdrawal" type="number" inputmode="decimal" step="0.01" min="0" value="${c.totalWithdrawal ?? 0}" />
+          </div>
+          <p class="form-hint">主帳號至今提領的 USDT 總額。報酬率會自動加回此金額，<br/>提領後績效不受影響；總資產淨值則顯示提領後的實際持有。</p>
         </div>
         <div class="form-group">
           <label class="form-label">USDT → TWD 匯率（即時）</label>
@@ -2595,12 +2669,14 @@
         const p = parseFloat($('#setPrincipal').value);
         const d = $('#setDate').value;
         const tr = parseFloat($('#setTwdRate').value);
+        const wd = parseFloat($('#setWithdrawal').value);
         if (!Number.isFinite(p) || p <= 0) { toast('本金需大於 0', true); return; }
         if (!d) { toast('請選擇日期', true); return; }
         if (!Number.isFinite(tr) || tr <= 0) { toast('匯率需大於 0', true); return; }
         state.config.initialPrincipal = p;
         state.config.startDate = d;
         state.config.twdRate = tr;
+        state.config.totalWithdrawal = Number.isFinite(wd) && wd > 0 ? wd : 0;
         saveState();
         closeSheet();
         renderApp();
@@ -2705,12 +2781,14 @@
 【帳戶總覽】
 總資產淨值       $${fmtMoney(t.totalAsset)}
 累計收益率       ${fmtPct(t.totalReturnPct, 2, true)}
-年化 APR        ${fmtPct(t.apr, 2, true)}
+年化 APR        ${fmtPct(t.apr, 2, true)}${t.totalWithdrawal > 0 ? `
+累計提領         $${fmtMoney(t.totalWithdrawal)}
+含提領總值       $${fmtMoney(t.totalValuePerf)}` : ''}
 
 【交易帳戶 · 單位數】
 初始本金         $${fmtMoney(t.principal)}
-最新月份收益     $${fmtMoney(t.latestIncome)}
-帳戶現值         $${fmtMoney(t.tradingAccount)}
+本月增值         $${fmtMoney(t.latestIncome)}
+帳戶現值         $${fmtMoney(t.totalWithdrawal > 0 ? t.tradingAccount : t.tradingAccountPerf)}
 
 【資金帳戶 · 配息】
 累計返佣         $${fmtMoney(t.fundingAccount)}
