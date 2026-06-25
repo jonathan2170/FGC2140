@@ -426,6 +426,61 @@
     .hero-side {
       text-align: right;
     }
+    /* Performance-led hero: big 累計收益率, secondary APR */
+    .hero-return {
+      margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.0;
+      color: var(--profit);
+    }
+    .hero-return.neg { color: var(--loss); }
+    .hero-return-sub {
+      margin-top: 7px;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+    .hero-apr {
+      margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      color: var(--gold);
+    }
+    .hero-apr.neg { color: var(--loss); }
+    /* Mini currency toggle that sits in the foot next to 總資產淨值 */
+    .foot-label-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .amt-toggle-mini {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px 2px 5px;
+      border-radius: 100px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-tertiary);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      line-height: 1;
+    }
+    .amt-toggle-mini:active { opacity: 0.6; transform: scale(0.95); }
+    .amt-toggle-mini svg { display: block; }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -554,17 +609,24 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
       padding-top: 14px;
       border-top: 1px solid var(--border-subtle);
       position: relative;
       z-index: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
+    .hero-foot::-webkit-scrollbar { display: none; }
     .hero-foot .item {
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--text-tertiary);
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 0;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .hero-foot .item .v {
       color: var(--text-primary);
@@ -572,7 +634,19 @@
       font-family: 'JetBrains Mono', monospace;
       font-weight: 500;
     }
-    .hero-foot .divider { width: 1px; height: 24px; background: var(--border-subtle); }
+    .hero-foot .item .v.amt-toggle {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hero-foot .item .v.amt-toggle:active { opacity: 0.6; }
+    .hero-foot .divider { width: 1px; height: 24px; background: var(--border-subtle); flex-shrink: 0; }
+    .hero-foot .item .foot-subnote {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: -0.01em;
+      margin-top: 1px;
+    }
 
     /* ============================
        ACCOUNT CARDS
@@ -1458,7 +1532,7 @@
   // Format: a JSON literal for {config, records, publishedAt}, or null.
   // The string below uses an exact marker the publisher script searches for.
   /* PUBLISHED_STATE_BEGIN */
-  const PUBLISHED_STATE = {"config":{"initialPrincipal":5000,"startDate":"2026-02-01","currency":"USDT","twdRate":32.5,"totalWithdrawal":0},"records":[{"id":"r_wl6yv834on2","ym":"2026-03","incomeAmount":685.92,"returnRate":13.72,"rebateRate":1.18,"notes":""},{"id":"r_vzqnxw454hn","ym":"2026-04","incomeAmount":922.44,"returnRate":18.45,"rebateRate":1.69,"notes":""},{"id":"r_3z93zy45gkx","ym":"2026-05","incomeAmount":812.5,"returnRate":16.25,"rebateRate":1.67,"notes":""},{"id":"r_16vgmxqg2vu","ym":"2026-06","incomeAmount":432.13,"returnRate":8.65,"rebateRate":1.18,"notes":""}],"publishedAt":"2026-06-24T12:42:17.478Z"};
+  const PUBLISHED_STATE = null;
   /* PUBLISHED_STATE_END */
 
   const DEFAULT_STATE = {
@@ -1922,9 +1996,16 @@
 
     const heroChartHTML = renderMonthsStrip(t.records);
 
+    const latestYm = hasRecords ? t.records[t.records.length - 1].ym : null;
+    const wdPctList = t.principal > 0 ? (t.totalWithdrawal / t.principal) * 100 : 0;
     const recordsHTML = hasRecords ? t.records.slice().reverse().map(r => {
       const rb = r.rebateAmount;
       const cls = rb >= 0 ? '' : 'neg';
+      const isLatest = r.ym === latestYm;
+      // Latest month: add back withdrawal so its 收益額/收益率 reflect true performance
+      // (consistent with the months strip and the dashboard headline).
+      const dispIncome = (Number(r.incomeAmount) || 0) + (isLatest ? t.totalWithdrawal : 0);
+      const dispReturn = (Number(r.returnRate) || 0) + (isLatest ? wdPctList : 0);
       return `
         <div class="record amt-toggle" data-id="${r.id}" role="button" tabindex="0">
           <div class="record-top">
@@ -1937,11 +2018,11 @@
           <div class="record-meta">
             <div class="meta-item">
               <span class="k">收益額</span>
-              <span class="v ${r.incomeAmount >= 0 ? 'pos' : 'neg'}">${fmtAmt(r.incomeAmount, { signed: true })}</span>
+              <span class="v ${dispIncome >= 0 ? 'pos' : 'neg'}">${fmtAmt(dispIncome, { signed: true })}</span>
             </div>
             <div class="meta-item">
               <span class="k">收益率</span>
-              <span class="v ${r.returnRate >= 0 ? 'pos' : 'neg'}">${fmtPct(r.returnRate, 2, true)}</span>
+              <span class="v ${dispReturn >= 0 ? 'pos' : 'neg'}">${fmtPct(dispReturn, 2, true)}</span>
             </div>
             <div class="meta-item">
               <span class="k">節點返佣</span>
@@ -2000,40 +2081,28 @@
         ${canEdit() ? '<span class="meta-chip" style="color: var(--mint); border-color: color-mix(in srgb, var(--mint) 24%, transparent);">管理員</span>' : ''}
       </div>
 
-      <!-- Hero -->
+      <!-- Hero — copy-trading master account: lead with PERFORMANCE (報酬率/APR),
+           net asset value is secondary (followers join at different times). -->
       <section class="hero anim-in anim-in-1">
         <div class="hero-row">
           <div>
-            <div class="hero-label-row">
-              <span class="hero-label">總資產淨值</span>
-              <button type="button" class="amt-toggle-btn" id="heroValueBtn" aria-label="切換 USDT / 新台幣顯示">
-                <svg viewBox="0 0 24 24" fill="none" width="11" height="11"><path d="M7 10l-4-4 4-4M3 6h11M17 14l4 4-4 4M21 18H10" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span class="amt-toggle-label">${getDisplayMode() === 'twd' ? 'TWD' : 'USDT'}</span>
-              </button>
+            <div class="hero-label">累計收益率</div>
+            <div class="hero-return ${t.totalReturnPct >= 0 ? '' : 'neg'}">
+              ${heroPillSign}${fmtPct(t.totalReturnPct, 2)}
             </div>
-            <div class="hero-value amt-toggle" id="heroValueDisplay">
-              <span class="currency">${currentSymbol()}</span><span class="mono">${getDisplayMode() === 'twd' ? Math.round(t.totalAsset * getCurrentTwdRate()).toLocaleString('en-US') : fmtMoney(t.totalAsset)}</span>
-            </div>
-            ${t.totalWithdrawal > 0 ? `
-            <div class="hero-withdraw-note">
-              <span class="hw-item">已提領 <span class="hw-v">${fmtAmt(t.totalWithdrawal)}</span></span>
-              <span class="hw-sep">·</span>
-              <span class="hw-item">含提領總值 <span class="hw-v">${fmtAmt(t.totalValuePerf)}</span></span>
-            </div>
-            ` : ''}
+            <div class="hero-return-sub">跟單主帳號 · ${t.latestIncome >= 0 ? '持續獲利中' : '運行中'}</div>
           </div>
           <div class="hero-side">
-            <div class="hero-label">累計收益率</div>
-            <div style="margin-top: 6px;">
-              <span class="pill ${heroPillCls}">${heroPillSign}${fmtPct(t.totalReturnPct, 2)}</span>
-            </div>
+            <div class="hero-label">年化 APR</div>
+            <div class="hero-apr ${t.apr >= 0 ? '' : 'neg'}">${t.apr >= 0 ? '+' : ''}${fmtPct(t.apr, 2)}</div>
           </div>
         </div>
         <div class="months-wrap">${heroChartHTML}</div>
         <div class="hero-foot">
           <div class="item">
-            <span>初始本金</span>
-            <span class="v">${fmtAmt(t.principal)}</span>
+            <span class="foot-label-row">總資產淨值<button type="button" class="amt-toggle-mini" id="heroValueBtn" aria-label="切換 USDT / 新台幣"><svg viewBox="0 0 24 24" fill="none" width="9" height="9"><path d="M7 10l-4-4 4-4M3 6h11M17 14l4 4-4 4M21 18H10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>${getDisplayMode() === 'twd' ? 'TWD' : 'USDT'}</button></span>
+            <span class="v amt-toggle" id="heroValueDisplay">${fmtAmt(t.totalAsset)}</span>
+            ${t.totalWithdrawal > 0 ? `<span class="foot-subnote">含提領總值 ${fmtAmt(t.totalValuePerf)}</span>` : ''}
           </div>
           <div class="divider"></div>
           <div class="item">
@@ -2042,16 +2111,16 @@
           </div>
           <div class="divider"></div>
           ${t.totalWithdrawal > 0 ? `
-          <div class="item">
+          <div class="item" style="text-align: right">
             <span>累計提領</span>
             <span class="v" style="color: var(--gold)">${fmtAmt(t.totalWithdrawal)}</span>
           </div>
-          <div class="divider"></div>
-          ` : ''}
+          ` : `
           <div class="item" style="text-align: right">
-            <span>起始日</span>
-            <span class="v">${state.config.startDate || '—'}</span>
+            <span>初始本金</span>
+            <span class="v">${fmtAmt(t.principal)}</span>
           </div>
+          `}
         </div>
       </section>
 
